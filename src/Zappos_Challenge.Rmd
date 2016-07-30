@@ -1,0 +1,201 @@
+---
+title: "Zappos Analytics Challenge"
+author: "Anirudh Pillai"
+date: "July 14, 2016"
+output: word_document
+---
+
+#**Introduction**
+
+######**The first step to do before visualizing data is to understand our dataset.Lets check dimension of our dataset.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+# Load All libraries necessary
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(reshape2)
+library(lubridate)
+library(gridExtra)
+
+
+```
+
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+# Reading the csv file
+data = read.csv("Analytics Challenge Data 2.csv",header = TRUE)
+# Observed that csv was reading 3 extra columns so slicing it
+data = data[,1:12]
+# Check dimensionality
+dim(data)
+```
+
+######**Our Dataset has 21061 rows and 12 columns.** 
+
+######**I observed that dataset has lot of missing values and data for Months March, April and May are missing.Let's check each column name or feature name in our dataset.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+names(data)
+# Check what data looks like by printing first 5 rows
+#data[1:5,]
+```
+
+######**Let us find datatype of each attribute.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+# Check datatype of columns
+str(data)
+
+```
+
+
+######**Let's summarize our dataset.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+summary(data)
+data$day <- as.Date(data$day)
+data$month <- month(data$day,label = TRUE,abbr = TRUE)
+conversion_rate <- (data$orders/data$visits)
+bounce_rate <- (data$bounces/data$visits)
+add_to_cart_rate <- (data$add_to_cart/data$visits)
+data<- data.frame(data,conversion_rate,bounce_rate,add_to_cart_rate)
+```
+
+######**I have added new column called month which contains initials of each Month.e.g:- Jan, Feb etc which will help when grouping attributes monthly.I have also calculated conversion rate, bounce rate and add to cart rate and added column for each in our dataset.**
+       
+######**Let us now check which site is most visisted by our customers.**
+       
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+Site<- factor(data$site)
+qplot(factor(site),data = data,geom = "bar",fill =Site,xlab = "Site", main = "Site Popularity")
+
+```
+
+######**Clearly Acme is favorite among users as seen from plot.Pinnacle and Sortly are not far behind and are doing ok. Botly, Tabular and Widgetry are on the same page with minimum customers visiting the website. In my opinion we shoud:**
+
+* promote Botly, Tabular and Widgetry by publishing their contents or offers as advertisments on Acme,Pinnacle and Sortly.
+* provide huge discounts or deals initially to lure customers.
+
+######**Let us check Platform Popularity or which platform is widely used by customers to visit our sites.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+Platform <- factor(data$platform)
+qplot(factor(platform),data = data,geom = "bar",fill =Platform,xlab = "Platform",main = "Platform Distribution")
+```
+
+######**Both Android and iOS are seen to be widely popular platforms among customers for browsing our sites but iOS has slight edge compared to Android when we compare the exact count.** 
+
+######**If we divide Platform into sub classes like Mobile OS and System OS. We can see that iOS tops the chart among smartphones and tablets whereas Windows slightly edges past all the other Operating systems.**
+
+######**We can further plot stacked bar chart indicating popularity of sites in each platform.**
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+qplot(factor(platform),data = data,geom = "bar",fill =Site,xlab = "Platform",main = "Platform Distribution")
+
+```
+
+######**Let's find out our highest revenue generating website and platform.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+pp<-ggplot(data=data,aes(x=factor(site),y=gross_sales,fill =site)) + stat_summary(fun.y = "sum",geom = "bar") + ggtitle("Gross Sales vs Site") + labs(x="Site", y= "Gross Sales")
+options(scipen = 6)
+pp
+tp<-ggplot(data=data,aes(x=factor(platform),y=gross_sales,fill =platform)) + stat_summary(fun.y = "sum",geom = "bar") + ggtitle("Gross Sales vs Platform") + labs(x="Site", y= "Gross Sales")
+#options(scipen = 6)
+tp
+
+
+```
+
+######**Clearly, Acme generates way more revenue than any other website.We should take steps to improve revenue from other websites.**
+
+######** Windows Desktops, MacOSX, iOS Devices generate majority of revenue with Windows being top performer.
+
+
+######**Let us check conversion rate for each platform.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+lp<-ggplot(data=na.omit(data),aes(x=factor(platform),y=conversion_rate,fill =factor(platform))) + stat_summary(fun.y = "mean",geom = "bar") + ggtitle("Conversion Rate of each Platform") + labs(x="Platform", y= "Conversion Rate")  
+lp
+
+```
+
+######**Conversion rates for Blackberry and Symbian OS is very low. We can ignore Symbian OS since there are only 74 users who have used symbian device for browsing. Moreover Symbion is no longer popular or widely used among users.**
+
+######**We have 1574 customers who use Blackberry device for browsing our websites and we should take steps to improve conversion rate on this platform by providing some Blackberry specific deal or offers.**
+
+#Key Performance Index
+
+######**Since there are so many parameters in our dataset which can be used to judge performance of webistes so let's make a correlation matrix of all key performance index.**
+
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+d<- na.omit(data)
+
+corr<-round(cor(data[,sort(c("visits", "distinct_sessions", "orders", "gross_sales", "bounces","add_to_cart","product_page_views","search_page_views"))], method="pearson", use="pairwise.complete.obs"),2)
+corr[lower.tri(corr)]<-NA
+corr<-melt(corr)
+corr$Var1<-as.character(corr$Var1)
+corr$Var2<-as.character(corr$Var2)
+corr<-na.omit(corr)
+g<-ggplot(corr, aes(Var2, Var1))+ geom_tile(data=corr, aes(fill=value), color="black")+
+ scale_fill_gradient2(low="yellow", high="red", mid="orange", midpoint=0, limit=c(-1,1),name="Pearson Correlation")+theme(axis.text.x = element_text(angle=45, vjust=1, size=11, hjust=1))+coord_equal()
+g
+
+g1<-ggplot(data,aes(orders,gross_sales,colour=site))
+g1<-g1 + geom_point()+ geom_smooth(method="lm")
+g1<-g1+scale_y_continuous(label=function(x){return(paste(x/1000000, "M"))})
+g1<-g1+scale_x_continuous(label=function(x){return(paste(x/1000, "K"))})
+g1<- g1+labs(title='Orders vs Gross Sales')
+g1<-g1+theme(plot.title = element_text(size=10, face="italic", vjust=2))
+g1<-g1 + theme(axis.text.x=element_text(angle=50, size=10, vjust=0.5))
+g2<-ggplot(data,aes(distinct_sessions,orders,colour=site))+ geom_point()+geom_smooth(method="lm")
+g2<- g2+labs(title='Distinct Sessions Vs Orders')
+g2<-g2+theme(plot.title = element_text(size=10, face="italic", vjust=2))
+g2<-g2 + theme(axis.text.x=element_text(angle=50, size=10, vjust=0.5))
+g2<-g2+scale_x_continuous(label=function(x){return(paste(x/1000, "K"))})
+g1
+g2
+
+```
+
+######**My observations from above is**
+
+* All the Key Performance Indicators have positive correlations
+* Low correlation between Vists and Orders.
+* Correlation between Vists and Bounces is very high and we need some kind of load balancer to handle traffic specially when there are lot of customers or during festive season. I also recommend load testing and stress testing from my personal experience.
+
+######**Let's check average bounce rate per site.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+ag<- aggregate(data$bounce_rate, by=list(site=data$site), FUN=mean,na.rm=TRUE)
+plyr::rename(ag, c("x"= " Average Bounce Rate"))
+sg<- aggregate(data$visits,by=list(site=data$site),FUN=sum,na.rm=TRUE)
+plyr::rename(sg, c("x"= " Number of Visits"))
+
+
+```
+
+######**Bounce Rate represents the percentage of visitors who enter the site and then leave ("bounce") rather than continuing on to view other pages within the same site.**
+######**Bounce rate looks pretty decent and shows that customers do navigate to other pages in our webistes.**
+
+######**As seen from the results:**
+* Acme is our most visited website
+* Botly is our least visited website.
+
+######**These results help us to understand customer behavior and we can improve their experiences in areas we lack and get better results.**
+
+```{r,message=FALSE,warning=FALSE,cache=TRUE,echo=FALSE}
+data$new_customer[data$new_customer==1]<- "New Customer"
+data$new_customer[data$new_customer==0]<- "Retaining Customer"
+qplot(new_customer,data = data,geom = "bar",fill =new_customer,xlab = "Customer Type",main = "Customer Counts")
+
+```
+
+######**We have 7066 returning customer which shows that our customers had positive experience in past and are loyal to the brand. We have 5736 new customers which is equally good.**
+
+#Future Implementations Possible
+
+* Add Heatmap indicating busiest months. (I tried to implement but was getting error related to package version for which I could not find any solution).
+* We can also have visualization related to new customers and retaining customers who add items to carts and their sessions.
+* We can Implement Regression to predict sales for next year or Time series analysis to predict sales for each month next year.
